@@ -1,9 +1,21 @@
 import streamlit as st
 import joblib
 import numpy as np
+import sqlite3
 
 # Load the trained model
 model = joblib.load('Loan_status.pkl')
+
+# Create SQLite connection and cursor
+conn = sqlite3.connect('loan_applications.db')
+c = conn.cursor()
+
+# Create table if not exists
+c.execute('''CREATE TABLE IF NOT EXISTS loan_applications
+             (first_name TEXT, middle_name TEXT, surname TEXT, address TEXT, telephone TEXT, email TEXT, 
+              gender TEXT, married TEXT, dependents INTEGER, education TEXT, employed TEXT, 
+              annual_income REAL, co_income REAL, loan_amount REAL, loan_amount_term INTEGER, 
+              credit_history INTEGER, property_area TEXT, loan_status TEXT)''')
 
 # Define the Streamlit app
 def main():
@@ -79,6 +91,28 @@ def main():
                 result_message = "Congratulations! You are eligible for this loan." if prediction == 1 \
                     else "We're sorry, you are not eligible for this loan."
                 st.success(result_message)
+
+                # Save applicant details to database
+                c.execute('''INSERT INTO loan_applications VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                          (st.session_state.user_inputs['first_name'],
+                           st.session_state.user_inputs['middle_name'],
+                           st.session_state.user_inputs['surname'],
+                           st.session_state.user_inputs['address'],
+                           st.session_state.user_inputs['telephone'],
+                           st.session_state.user_inputs['email'],
+                           st.session_state.user_inputs['gender'],
+                           st.session_state.user_inputs['married'],
+                           st.session_state.user_inputs['dependents'],
+                           st.session_state.user_inputs['education'],
+                           st.session_state.user_inputs['employed'],
+                           st.session_state.user_inputs['annual_income'],
+                           st.session_state.user_inputs['co_income'],
+                           st.session_state.user_inputs['loan_amount'],
+                           st.session_state.user_inputs['loan_amount_term'],
+                           st.session_state.user_inputs['credit_history'],
+                           st.session_state.user_inputs['property_area'],
+                           result_message))
+                conn.commit()
             except ValueError:
                 st.error("An error occurred while processing the loan application. Please try again.")
         else:
