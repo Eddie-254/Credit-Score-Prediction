@@ -2,6 +2,7 @@ import streamlit as st
 import joblib
 import numpy as np
 import sqlite3
+import pandas as pd
 
 # Load the trained model
 model = joblib.load('Loan_status.pkl')
@@ -55,6 +56,11 @@ def main():
         # Submit button
         submit_button = st.form_submit_button(label='Submit')
 
+    # Clear button
+    if st.button('Clear Form'):
+        # Clear session state variables related to form inputs
+        st.session_state.user_inputs = {key: None for key in st.session_state.user_inputs.keys() if key != 'loan_details'}
+
     # Process form submission
     if submit_button:
         # Validate mandatory fields
@@ -62,56 +68,69 @@ def main():
                             loan_amount_term, property_area]
         if all(mandatory_fields):
             # Store user inputs in session state
-            st.session_state.user_inputs['gender'] = gender
-            st.session_state.user_inputs['married'] = married
-            st.session_state.user_inputs['dependents'] = dependents
-            st.session_state.user_inputs['education'] = education
-            st.session_state.user_inputs['employed'] = employed
-            st.session_state.user_inputs['annual_income'] = annual_income
-            st.session_state.user_inputs['co_income'] = co_income
-            st.session_state.user_inputs['loan_amount'] = loan_amount
-            st.session_state.user_inputs['loan_amount_term'] = loan_amount_term
-            st.session_state.user_inputs['credit_history'] = credit_history
-            st.session_state.user_inputs['property_area'] = property_area
+            st.session_state.user_inputs['first_name'] = st.session_state.first_name
+            st.session_state.user_inputs['middle_name'] = st.session_state.middle_name
+            st.session_state.user_inputs['surname'] = st.session_state.surname
+            st.session_state.user_inputs['address'] = st.session_state.address
+            st.session_state.user_inputs['telephone'] = st.session_state.telephone
+            st.session_state.user_inputs['email'] = st.session_state.email
+            
+            st.session_state.user_inputs['loan_details'] = {
+                'gender': gender,
+                'married': married,
+                'dependents': dependents,
+                'education': education,
+                'employed': employed,
+                'annual_income': annual_income,
+                'co_income': co_income,
+                'loan_amount': loan_amount,
+                'loan_amount_term': loan_amount_term,
+                'credit_history': credit_history,
+                'property_area': property_area
+            }
+
+            # Initialize result_message with an empty string
+            result_message = ""
 
             # Predict loan status
             try:
-                x_app = np.array([[1 if st.session_state.user_inputs['gender'] == 'Male' else 0,
-                                   1 if st.session_state.user_inputs['married'] == 'Married' else 0,
-                                   st.session_state.user_inputs['dependents'],
-                                   1 if st.session_state.user_inputs['education'] == 'Graduate' else 0,
-                                   1 if st.session_state.user_inputs['employed'] == 'Yes' else 0,
-                                   st.session_state.user_inputs['annual_income'],
-                                   st.session_state.user_inputs['co_income'],
-                                   st.session_state.user_inputs['loan_amount'],
-                                   st.session_state.user_inputs['loan_amount_term'],
-                                   st.session_state.user_inputs['credit_history'],
-                                   ['Rural', 'Semiurban', 'Urban'].index(st.session_state.user_inputs['property_area'])]])
+                x_app = np.array([[1 if gender == 'Male' else 0,
+                                1 if married == 'Married' else 0,
+                                dependents,
+                                1 if education == 'Graduate' else 0,
+                                1 if employed == 'Yes' else 0,
+                                annual_income,
+                                co_income,
+                                loan_amount,
+                                loan_amount_term,
+                                credit_history,
+                                ['Rural', 'Semiurban', 'Urban'].index(property_area)]])
                 prediction = model.predict(x_app)
                 result_message = "Congratulations! You are eligible for this loan." if prediction == 1 \
                     else "We're sorry, you are not eligible for this loan."
                 st.success(result_message)
 
                 # Save applicant details to database
-                c.execute('''INSERT INTO loan_applications VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                          (st.session_state.user_inputs['first_name'],
-                           st.session_state.user_inputs['middle_name'],
-                           st.session_state.user_inputs['surname'],
-                           st.session_state.user_inputs['address'],
-                           st.session_state.user_inputs['telephone'],
-                           st.session_state.user_inputs['email'],
-                           st.session_state.user_inputs['gender'],
-                           st.session_state.user_inputs['married'],
-                           st.session_state.user_inputs['dependents'],
-                           st.session_state.user_inputs['education'],
-                           st.session_state.user_inputs['employed'],
-                           st.session_state.user_inputs['annual_income'],
-                           st.session_state.user_inputs['co_income'],
-                           st.session_state.user_inputs['loan_amount'],
-                           st.session_state.user_inputs['loan_amount_term'],
-                           st.session_state.user_inputs['credit_history'],
-                           st.session_state.user_inputs['property_area'],
-                           result_message))
+                c.execute('''INSERT INTO loan_applications (first_name, middle_name, surname, address, telephone, email, gender, married, dependents, education, employed, annual_income, co_income, loan_amount, loan_amount_term, credit_history, property_area, loan_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                        (st.session_state.user_inputs.get('first_name', ''),
+                        st.session_state.user_inputs.get('middle_name', ''),
+                        st.session_state.user_inputs.get('surname', ''),
+                        st.session_state.user_inputs.get('address', ''),  # Insert address
+                        st.session_state.user_inputs.get('telephone', ''),  # Insert telephone number
+                        st.session_state.user_inputs.get('email', ''),  # Insert email
+                        gender,
+                        married,
+                        dependents,
+                        education,
+                        employed,
+                        annual_income,
+                        co_income,
+                        loan_amount,
+                        loan_amount_term,
+                        credit_history,
+                        property_area,
+                        'Eligible' if prediction == 1 else 'Declined'))  # Set loan_status based on eligibility
+
                 conn.commit()
             except ValueError:
                 st.error("An error occurred while processing the loan application. Please try again.")
@@ -119,5 +138,15 @@ def main():
             # If mandatory fields are missing, show an error message
             st.error("Please fill in all mandatory fields except Number of Dependents and Credit History.")
 
+
+    # Button to view applicants and their status
+    if st.button('View Applicants and Status'):
+        # Query database for loan applications and status
+        c.execute('''SELECT * FROM loan_applications''')
+        rows = c.fetchall()
+        # Display the applicants and status
+        st.write(pd.DataFrame(rows, columns=[i[0] for i in c.description]))
+
+    
 if __name__ == '__main__':
     main()
